@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Legal / Tax Research Assistant</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">⚖️</div>
+      <div>
+        <h1 class="app-title">AI Legal / Tax Research Assistant</h1>
+        <p class="app-sub">Upload any legal or tax document and ask questions instantly</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="model-badge">🤖 LLaMA 3.3 · Groq API · RAG</span>
+    </div>
+  </header>
+
+  <!-- MAIN LAYOUT -->
+  <div class="main-layout">
+
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+
+      <!-- DOC 1 UPLOAD -->
+      <div class="card">
+        <h3 class="card-title">📄 Document 1</h3>
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-icon">📂</div>
+          <p class="upload-text">Click or drag & drop PDF</p>
+          <p class="upload-hint">GST rules, IT Act, Compliance docs...</p>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf" style="display:none" onchange="handleFileUpload(event)" />
+        <div id="docStatus" class="doc-status hidden">
+          <span class="status-dot"></span>
+          <span id="docName">—</span>
+        </div>
+        <div id="docStats" class="doc-stats hidden">
+          <span id="chunkCount">0</span> sections extracted
+        </div>
+      </div>
+
+      <!-- DOC 2 UPLOAD — shown after doc1 loads -->
+      <div class="card doc2-card hidden" id="doc2-section">
+        <h3 class="card-title">🔀 Compare with Document 2</h3>
+        <p class="doc2-hint">Upload a second PDF to compare provisions side by side (e.g. old vs new rules)</p>
+        <div class="upload-zone upload-zone-sm" id="uploadZone2" onclick="document.getElementById('fileInput2').click()">
+          <div class="upload-icon">📂</div>
+          <p class="upload-text">Click to upload 2nd PDF</p>
+        </div>
+        <input type="file" id="fileInput2" accept=".pdf" style="display:none" onchange="handleFileUpload(event)" />
+        <div id="docStatus2" class="doc-status hidden">
+          <span class="status-dot"></span>
+          <span id="docName2">—</span>
+        </div>
+        <button class="btn btn-compare btn-block" onclick="runAction('compare')" id="btn-compare" disabled>
+          🔀 Compare Both Documents
+        </button>
+      </div>
+
+      <!-- QUICK ACTIONS -->
+      <div class="card">
+        <h3 class="card-title">⚡ Quick Actions</h3>
+        <button class="btn btn-outline btn-block" onclick="runAction('summarize')" id="btn-summarize" disabled>
+          📋 Summarize Document
+        </button>
+        <button class="btn btn-outline btn-block" onclick="runAction('checklist')" id="btn-checklist" disabled>
+          ✅ Generate Compliance Checklist
+        </button>
+        <button class="btn btn-danger-outline btn-block" onclick="runAction('risks')" id="btn-risks" disabled>
+          🚨 Scan for Risk Flags
+        </button>
+      </div>
+
+      <!-- SAMPLE QUESTIONS -->
+      <div class="card">
+        <h3 class="card-title">💡 Try These Questions</h3>
+        <div class="sample-questions">
+          <button class="sample-q" onclick="setSampleQ(this)">What are the key obligations under this document?</button>
+          <button class="sample-q" onclick="setSampleQ(this)">What penalties are mentioned?</button>
+          <button class="sample-q" onclick="setSampleQ(this)">What are the filing deadlines?</button>
+          <button class="sample-q" onclick="setSampleQ(this)">Explain the compliance requirements</button>
+          <button class="sample-q" onclick="setSampleQ(this)">What are the key definitions?</button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- MAIN CHAT AREA -->
+    <main class="chat-area">
+
+      <!-- CHAT TOOLBAR — always visible at top of chat -->
+      <div class="chat-toolbar" id="chatToolbar">
+        <span class="toolbar-label">💬 Chat</span>
+        <div class="toolbar-actions">
+          <button class="toolbar-btn" onclick="exportReport()" title="Download full chat as formatted HTML report">
+            📄 Export Full Report
+          </button>
+          <button class="toolbar-btn" onclick="exportChat()" title="Download full chat as plain text">
+            📝 Export as .txt
+          </button>
+          <button class="toolbar-btn toolbar-btn-danger" onclick="clearChat()" title="Clear all messages">
+            🗑️ Clear Chat
+          </button>
+        </div>
+      </div>
+
+      <!-- CHAT MESSAGES -->
+      <div class="chat-messages" id="chatMessages">
+        <div class="welcome-message">
+          <div class="welcome-icon">⚖️</div>
+          <h2>Welcome to AI Legal / Tax Research Assistant</h2>
+          <p>Upload a legal or tax document on the left, then ask any question. I'll answer with references to specific sections and clauses — powered by RAG architecture.</p>
+          <div class="welcome-features">
+            <span class="feature-chip">📎 Document Q&A</span>
+            <span class="feature-chip">📋 Compliance Checklist</span>
+            <span class="feature-chip">🚨 Risk Flag Detection</span>
+            <span class="feature-chip">🔀 Document Comparison</span>
+            <span class="feature-chip">🧠 Conversation Memory</span>
+            <span class="feature-chip">📤 Export Full Report</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAT INPUT -->
+      <div class="chat-input-area">
+        <div class="input-row">
+          <textarea
+            id="questionInput"
+            class="chat-textarea"
+            placeholder="Ask a question about your document... (e.g. What are the penalties for late filing?)"
+            onkeydown="handleKeyDown(event)"
+            oninput="updateCharCount()"
+          ></textarea>
+          <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="Click to speak your question">🎤</button>
+          <button class="send-btn" id="sendBtn" onclick="askQuestion()" disabled>➤</button>
+        </div>
+        <div id="micStatus" class="mic-status hidden">🎙️ Listening... speak your question</div>
+        <div class="input-footer">
+          <span class="char-hint">⚠️ Research support only · Not legal advice · Enter to send · Shift+Enter for new line</span>
+          <span id="charCount" class="char-count"></span>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
